@@ -1,0 +1,10 @@
+# Supermarket Shelf Price Tag Generator - Dependencies
+PyQt6>=6.6.0
+pandas>=2.0.0
+openpyxl>=3.1.2
+xlrd>=2.0.1
+reportlab>=4.0.0
+qrcode>=7.4.2
+pillow>=10.0.0
+pypdfium2>=4.20.0
+pyinstaller>=6.0.0
