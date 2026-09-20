@@ -14,9 +14,9 @@ A complete, standalone Python desktop GUI application for Windows built with **P
 
 2. **Accurate Tag Content Breakdown:**
    - **Header:** Bold product name (auto-wrapping up to 2 lines) with pack size emphasis.
-   - **Branding:** `"BIG Mart Price"` stacked above the MRP.
+   - **Branding:** `"BIGG Mart Price"` stacked above the MRP.
    - **Middle Pricing Section:**
-     - Left: Stacked `"BIG MART PRICE"` header + strikethrough original price `"MRP: ₹ <MRP>"`.
+     - Left: Stacked `"BIGG Mart Price"` header + strikethrough original price `"MRP: ₹ <MRP>"`.
      - Right: Giant bold offer price (Indian Rupee symbol `₹` alongside massive numerals).
      - Crisp divider rules separating header, pricing, and footer.
    - **Promotional Offers & Savings Footer (No QR Code):**

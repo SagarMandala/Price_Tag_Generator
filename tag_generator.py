@@ -1,7 +1,7 @@
 """
 PDF Generation module for Supermarket Shelf Price Tag Generator.
 Generates multi-page A4 PDFs with an 8-tag grid (2 columns x 4 rows)
-with exact 90mm x 60mm dimensions, pure white background, 'BIG Mart Price' branding,
+with exact 90mm x 60mm dimensions, pure white background, 'BIGG Mart Price' branding,
 and support for customizable promotions (e.g. 'BUY 1 GET 1 FREE', 'BUY 2 GET 1 FREE').
 """
 
@@ -93,21 +93,20 @@ def draw_arrow_banner(c: canvas.Canvas, bx: float, by: float, bw: float, bh: flo
 
 
 def wrap_text_to_lines(text: str, max_w: float, font_name: str, font_size: float, c: canvas.Canvas, max_lines: int = 2) -> list[str]:
-    words = text.split()
-    if not words:
+    text = text.strip()
+    if not text:
         return [""]
+
+    # If the text fits in a single line, always return as single line
+    if c.stringWidth(text, font_name, font_size) <= max_w:
+        return [text]
+
+    words = text.split()
+    if len(words) <= 1:
+        return [text]
 
     lines = []
     current_line = []
-
-    unit_pattern = re.compile(r"^\d+(?:\.\d+)?\s*(?:KG|G|GM|GMS|ML|L|LTR|LTRS|PCS|PC|SET|JAR|TUB|FW|RS|/-)$", re.IGNORECASE)
-    has_unit_at_end = len(words) > 1 and bool(unit_pattern.match(words[-1]))
-
-    if has_unit_at_end and len(words) >= 3:
-        cand1 = " ".join(words[:-1])
-        cand2 = words[-1]
-        if c.stringWidth(cand1, font_name, font_size) <= max_w:
-            return [cand1, cand2]
 
     for w in words:
         test_line = " ".join(current_line + [w])
@@ -212,18 +211,18 @@ def draw_single_price_tag_option1(
     is_half_page = 120.0 * mm < tw <= 240.0 * mm # 2 tags (190x135mm)
 
     if is_full_page:
-        header_h = 38.0 * mm
-        footer_h = 42.0 * mm
+        header_h = 30.0 * mm
+        footer_h = 40.0 * mm
         f_scale = 3.0
         price_f_scale = 3.0
     elif is_half_page:
-        header_h = 28.0 * mm
-        footer_h = 32.0 * mm
+        header_h = 23.0 * mm
+        footer_h = 31.0 * mm
         f_scale = 2.1
         price_f_scale = 2.1
     else:
-        header_h = 13.5 * mm
-        footer_h = 14.5 * mm
+        header_h = 11.2 * mm
+        footer_h = 13.8 * mm
         f_scale = 1.0
         price_f_scale = 1.0
 
@@ -240,208 +239,240 @@ def draw_single_price_tag_option1(
         c.setDash()
 
     # Usable inner bounds
-    ix = x + 4.5 * mm * sx
-    iw = tw - 9.0 * mm * sx
+    ix = x + 3.8 * mm * sx
+    iw = tw - 7.6 * mm * sx
 
-    # 2. Header Section: Product Name
-    top_y = y + th - 2.8 * mm * f_scale
+    # Top & bottom dividers for middle section
+    div1_y = y + th - header_h
+    div2_y = y + footer_h
+
+    # 2. Header Section: Product Name (Single line always, split only if text exceeds bounds)
     raw_name = item.get("item_name", "PRODUCT NAME").strip()
-
-    header_font_size = 11.5 * f_scale
-    if len(raw_name) > 36:
-        header_font_size = 10.0 * f_scale
-    elif len(raw_name) > 26:
-        header_font_size = 10.8 * f_scale
-
-    lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, header_font_size, c, max_lines=2)
+    header_font_size = 11.2 * f_scale
+    if c.stringWidth(raw_name, FONT_BOLD, header_font_size) <= iw:
+        lines = [raw_name]
+    else:
+        single_line = False
+        for candidate_sz in [10.8, 10.2, 9.8, 9.2]:
+            test_sz = candidate_sz * f_scale
+            if c.stringWidth(raw_name, FONT_BOLD, test_sz) <= iw:
+                header_font_size = test_sz
+                lines = [raw_name]
+                single_line = True
+                break
+        if not single_line:
+            header_font_size = 10.0 * f_scale
+            lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, header_font_size, c, max_lines=2)
 
     c.setFillColor(colors.HexColor("#111111"))
     c.setFont(FONT_BOLD, header_font_size)
 
     if len(lines) == 1:
-        c.drawString(ix, top_y - header_font_size - 2.5 * f_scale, lines[0])
+        line_y = div1_y + (header_h - header_font_size * 0.75) / 2.0
+        c.drawString(ix, line_y, lines[0])
     else:
-        c.drawString(ix, top_y - header_font_size, lines[0])
-        c.drawString(ix, top_y - (header_font_size * 2 + 2.0 * f_scale), lines[1])
+        total_text_h = 2 * header_font_size + 2.0 * f_scale
+        base_y = div1_y + (header_h - total_text_h) / 2.0
+        c.drawString(ix, base_y + header_font_size + 2.0 * f_scale, lines[0])
+        c.drawString(ix, base_y, lines[1])
 
     # Top Divider Line below header
-    div1_y = y + th - header_h
     c.setStrokeColor(colors.HexColor("#1A1A1A"))
     c.setLineWidth(0.75 * f_scale)
-    c.line(x + 3.0 * mm * sx, div1_y, x + tw - 3.0 * mm * sx, div1_y)
+    c.line(x + 2.5 * mm * sx, div1_y, x + tw - 2.5 * mm * sx, div1_y)
 
     # 3. Middle Pricing Section
-    div2_y = y + footer_h
-
-    # Left Column: Store Title ("BIG Mart Price") & Strikethrough MRP
-    title_raw = store_title.strip()
-    if title_raw.upper().startswith("BIG MART"):
-        title_line1 = "BIG MART"
-        remainder = title_raw[8:].strip().upper()
-        title_line2 = remainder if remainder else "PRICE"
-    else:
-        title_words = title_raw.upper().split(maxsplit=1)
-        title_line1 = title_words[0] if title_words else "BIG MART"
-        title_line2 = title_words[1] if len(title_words) > 1 else "PRICE"
-
-    title_font_size = 12.0 * price_f_scale
-    c.setFont(FONT_BOLD, title_font_size)
-    c.drawString(ix, div1_y - 11.5 * price_f_scale, title_line1)
-    c.drawString(ix, div1_y - 23.5 * price_f_scale, title_line2)
-
-    # Giant Offer Price (Right Column)
+    # Left Column: Store Title ("BIG MART PRICE") & MRP
+    # Right Column: Promotional Offer Box (if present) placed above Rate-A Price
+    mid_h = div1_y - div2_y
+    giant_baseline_y = div2_y + 0.6 * mm * f_scale
     rate_formatted = item.get("rate_formatted", "0")
-    if len(rate_formatted) <= 2:
-        giant_size = 46.0 * price_f_scale
-        rupee_size = 25.0 * price_f_scale
-        giant_baseline_y = div1_y - 41.0 * price_f_scale
-        rupee_raise = 11.0 * price_f_scale
-    elif len(rate_formatted) <= 3:
-        giant_size = 40.0 * price_f_scale
-        rupee_size = 23.0 * price_f_scale
-        giant_baseline_y = div1_y - 41.0 * price_f_scale
-        rupee_raise = 10.0 * price_f_scale
-    elif len(rate_formatted) <= 4:
-        giant_size = 34.0 * price_f_scale
-        rupee_size = 20.0 * price_f_scale
-        giant_baseline_y = div1_y - 40.0 * price_f_scale
-        rupee_raise = 8.5 * price_f_scale
-    else:
-        giant_size = 28.0 * price_f_scale
-        rupee_size = 18.0 * price_f_scale
-        giant_baseline_y = div1_y - 39.0 * price_f_scale
-        rupee_raise = 7.0 * price_f_scale
 
-    if is_full_page:
-        giant_baseline_y = div1_y - 48.0 * mm
-
-    # MRP with strikethrough (increased by 50% from base)
-    mrp_formatted = item.get("mrp_formatted", "0")
-    mrp_str = f"MRP: {rupee} {mrp_formatted}"
-
-    mrp_font_size = 14.7 * price_f_scale
-    c.setFont(FONT_BOLD, mrp_font_size)
-    mrp_y = giant_baseline_y + 0.5 * price_f_scale
-    c.drawString(ix, mrp_y, mrp_str)
-
-    # Strikethrough line through MRP price portion
-    mrp_prefix_w = c.stringWidth(f"MRP: {rupee} ", FONT_BOLD, mrp_font_size)
-    price_val_w = c.stringWidth(mrp_formatted, FONT_BOLD, mrp_font_size)
-    st_x = ix + mrp_prefix_w - 1
-    st_y = mrp_y + 5.0 * price_f_scale
-    c.setLineWidth(1.6 * price_f_scale)
-    c.setStrokeColor(colors.HexColor("#111111"))
-    c.line(st_x, st_y, st_x + price_val_w + 2 * price_f_scale, st_y)
-
-    # Draw Giant Offer Price
-    giant_w = c.stringWidth(rate_formatted, FONT_BOLD, giant_size)
-    rupee_w = c.stringWidth(f"{rupee} ", FONT_BOLD, rupee_size)
-    total_offer_w = rupee_w + giant_w
-
-    offer_x = x + tw - 5.0 * mm * sx - total_offer_w
-    c.setFont(FONT_BOLD, rupee_size)
-    c.drawString(offer_x, giant_baseline_y + rupee_raise, rupee)
-    c.setFont(FONT_BOLD, giant_size)
-    c.drawString(offer_x + rupee_w - 1, giant_baseline_y, rate_formatted)
-
-    # 4. Promotional Offer Box (Yellow Box between Price and Footer)
     offer = item.get("offer", "None")
     has_promo = bool(offer and str(offer).strip().upper() not in ["NONE", "", "FALSE", "0"])
 
     if has_promo:
+        # Promotional Offer Box placed directly ABOVE the Rate-A price in the right column
         if is_full_page:
-            pbox_h = 22.0 * mm
-            pbox_y = div2_y + 7.0 * mm
-            corner_r = 3.5 * mm
-            base_p_font = 26.0
+            pbox_h = 18.0 * mm
+            pbox_w = 148.0 * mm
+            base_p_font = 24.0
         elif is_half_page:
-            pbox_h = 22.0 * mm
-            pbox_y = div2_y + 4.5 * mm
-            corner_r = 3.0 * mm
-            base_p_font = 22.0
+            pbox_h = 12.5 * mm
+            pbox_w = 102.0 * mm
+            base_p_font = 17.0
         else:
-            pbox_h = 10.2 * mm
-            pbox_y = div2_y + 2.0 * mm
-            corner_r = 1.8 * mm
-            base_p_font = 11.5
+            pbox_h = 5.8 * mm * f_scale
+            pbox_w = 48.0 * mm * sx
+            base_p_font = 9.2 * f_scale
 
-        pbox_x = ix
-        pbox_w = iw
+        pbox_top = div1_y - 0.7 * mm * f_scale
+        pbox_y = pbox_top - pbox_h
+        pbox_x = x + tw - 3.0 * mm * sx - pbox_w
 
-        # Draw bright supermarket yellow box with crisp dark border
+        # Draw Yellow Promo Box
         c.setFillColor(colors.HexColor("#FFE500"))
         c.setStrokeColor(colors.HexColor("#1A1A1A"))
         c.setLineWidth(0.85 * f_scale)
-        c.roundRect(pbox_x, pbox_y, pbox_w, pbox_h, corner_r, fill=1, stroke=1)
+        c.roundRect(pbox_x, pbox_y, pbox_w, pbox_h, 1.4 * mm * f_scale, fill=1, stroke=1)
 
         badge_text = str(offer).strip().upper()
         offer_font_size = base_p_font
-        max_t_w = pbox_w - 8.0 * mm * f_scale
-        while c.stringWidth(badge_text, FONT_BOLD, offer_font_size) > max_t_w and offer_font_size > (8.0 * f_scale):
+        while c.stringWidth(badge_text, FONT_BOLD, offer_font_size) > (pbox_w - 4.0 * mm * f_scale) and offer_font_size > (6.5 * f_scale):
             offer_font_size -= 0.5 * f_scale
 
         c.setFont(FONT_BOLD, offer_font_size)
         c.setFillColor(colors.HexColor("#111111"))
-        t_w = c.stringWidth(badge_text, FONT_BOLD, offer_font_size)
-        t_x = pbox_x + (pbox_w - t_w) / 2.0
-        t_y = pbox_y + (pbox_h - offer_font_size) / 2.0 + 1.2 * f_scale
-        c.drawString(t_x, t_y, badge_text)
+        ot_w = c.stringWidth(badge_text, FONT_BOLD, offer_font_size)
+        c.drawString(pbox_x + (pbox_w - ot_w) / 2.0, pbox_y + (pbox_h - offer_font_size) / 2.0 + 0.8 * f_scale, badge_text)
+
+        # Available vertical for Rate-A below promo box
+        avail_vert = (pbox_y - 0.4 * mm * f_scale) - giant_baseline_y
+        target_giant_size = avail_vert / 0.70
+        max_rate_w = 58.5 * mm * sx
+
+        giant_size = min(92.0 * price_f_scale, target_giant_size)
+        rupee_size = giant_size * 0.36
+        rupee_gap = 1.0 * mm * sx
+        r_w = c.stringWidth(rupee, FONT_BOLD, rupee_size) + rupee_gap
+        val_w = c.stringWidth(rate_formatted, FONT_BOLD, giant_size)
+        total_rate_w = r_w + val_w
+
+        if total_rate_w > max_rate_w:
+            scale = max_rate_w / total_rate_w
+            giant_size *= scale
+            rupee_size *= scale
+            r_w *= scale
+            val_w *= scale
+            total_rate_w = max_rate_w
+
+        # Position Rate-A under promo box:
+        # If rate fits within pbox_w, center under promo box; otherwise expand leftward
+        if total_rate_w <= pbox_w:
+            offer_x = pbox_x + (pbox_w - total_rate_w) / 2.0
+        else:
+            offer_x = x + tw - 3.0 * mm * sx - total_rate_w
+
+        rupee_raise = giant_size * 0.34
+        c.setFont(FONT_BOLD, rupee_size)
+        c.drawString(offer_x, giant_baseline_y + rupee_raise, rupee)
+        c.setFont(FONT_BOLD, giant_size)
+        c.drawString(offer_x + r_w, giant_baseline_y, rate_formatted)
+
+        title_col_w = pbox_x - ix - 2.0 * mm * sx
+        mrp_col_w = offer_x - ix - 2.0 * mm * sx
+
+    else:
+        # No promotional offer: Giant Rate-A takes almost the entire height between upper and lower lines
+        avail_vert = (div1_y - 0.8 * mm * f_scale) - giant_baseline_y
+        target_giant_size = avail_vert / 0.70
+
+        max_rate_w = 58.5 * mm * sx
+        giant_size = min(112.0 * price_f_scale, target_giant_size)
+        rupee_size = giant_size * 0.36
+        rupee_gap = 1.0 * mm * sx
+        r_w = c.stringWidth(rupee, FONT_BOLD, rupee_size) + rupee_gap
+        val_w = c.stringWidth(rate_formatted, FONT_BOLD, giant_size)
+        total_rate_w = r_w + val_w
+
+        if total_rate_w > max_rate_w:
+            scale = max_rate_w / total_rate_w
+            giant_size *= scale
+            rupee_size *= scale
+            r_w *= scale
+            val_w *= scale
+            total_rate_w = max_rate_w
+
+        offer_x = x + tw - 3.0 * mm * sx - total_rate_w
+        rupee_raise = giant_size * 0.34
+
+        c.setFont(FONT_BOLD, rupee_size)
+        c.setFillColor(colors.HexColor("#111111"))
+        c.drawString(offer_x, giant_baseline_y + rupee_raise, rupee)
+        c.setFont(FONT_BOLD, giant_size)
+        c.drawString(offer_x + r_w, giant_baseline_y, rate_formatted)
+
+        title_col_w = offer_x - ix - 2.0 * mm * sx
+        mrp_col_w = offer_x - ix - 2.0 * mm * sx
+
+    # Left Column: Store Title ("BIG MART PRICE") in single line, big
+    title_str = store_title.strip().upper()
+    title_font_size = 14.5 * price_f_scale
+    while c.stringWidth(title_str, FONT_BOLD, title_font_size) > title_col_w and title_font_size > 7.5 * price_f_scale:
+        title_font_size -= 0.5 * price_f_scale
+
+    title_w = c.stringWidth(title_str, FONT_BOLD, title_font_size)
+    title_x = ix + (title_col_w - title_w) / 2.0
+    title_y = div1_y - 2.0 * mm * f_scale - title_font_size * 0.75
+    c.setFont(FONT_BOLD, title_font_size)
+    c.setFillColor(colors.HexColor("#111111"))
+    c.drawString(title_x, title_y, title_str)
+
+    # MRP: Only displayed with strikethrough if MRP is greater than Rate-A (discounted item)
+    # If price and rate-a are the same, completely hide the striked MRP
+    mrp_val = item.get("mrp", 0.0)
+    rate_val = item.get("rate_a", item.get("rate", 0.0))
+    mrp_formatted = item.get("mrp_formatted", "0")
+    has_discount = (mrp_val > rate_val + 0.001) and (mrp_formatted != rate_formatted)
+
+    if has_discount:
+        mrp_str = f"MRP: {rupee} {mrp_formatted}"
+        mrp_font_size = 12.0 * price_f_scale
+        while c.stringWidth(mrp_str, FONT_BOLD, mrp_font_size) > mrp_col_w and mrp_font_size > 7.5 * price_f_scale:
+            mrp_font_size -= 0.5 * price_f_scale
+
+        mrp_w = c.stringWidth(mrp_str, FONT_BOLD, mrp_font_size)
+        mrp_x = ix + (mrp_col_w - mrp_w) / 2.0
+        mrp_y = div2_y + 1.8 * mm * f_scale
+
+        c.setFont(FONT_BOLD, mrp_font_size)
+        c.drawString(mrp_x, mrp_y, mrp_str)
+
+        # Strikethrough line through MRP price value portion
+        prefix_w = c.stringWidth(f"MRP: {rupee} ", FONT_BOLD, mrp_font_size)
+        price_val_w = c.stringWidth(mrp_formatted, FONT_BOLD, mrp_font_size)
+        st_x = mrp_x + prefix_w
+        st_y = mrp_y + mrp_font_size * 0.36
+        c.setLineWidth(1.4 * price_f_scale)
+        c.setStrokeColor(colors.HexColor("#111111"))
+        c.line(st_x, st_y, st_x + price_val_w, st_y)
 
     # Bottom Middle Divider Line
     c.setLineWidth(0.75 * f_scale)
     c.setStrokeColor(colors.HexColor("#1A1A1A"))
-    c.line(x + 3.0 * mm * sx, div2_y, x + tw - 3.0 * mm * sx, div2_y)
+    c.line(x + 2.5 * mm * sx, div2_y, x + tw - 2.5 * mm * sx, div2_y)
 
-    # 5. Footer Section: Always Shows Prominent Savings / Best Value Banner
-    if is_full_page:
-        bh = 26.0 * mm
-        badge_font_size = 32.0
-        savings_font_size = 44.0
-        badge_w = 130.0 * mm
-    elif is_half_page:
-        bh = 17.5 * mm
-        badge_font_size = 24.0
-        savings_font_size = 32.0
-        badge_w = 95.0 * mm
-    else:
-        bh = 8.5 * mm
-        badge_font_size = 12.5
-        savings_font_size = 17.0
-        badge_w = 46.0 * mm
-
+    # 5. Footer Section: Bigger YOUR SAVINGS (both text and amount cover entire space after bottom line)
+    bh = footer_h - 1.8 * mm * f_scale
     by = y + (footer_h - bh) / 2.0
 
     savings_val = item.get("savings", 0.0)
     savings_formatted = item.get("savings_formatted", "0")
 
+    footer_ix = x + 3.0 * mm * sx
+    footer_avail_w = tw - 6.0 * mm * sx
+
     if savings_val > 0:
         badge_text = "YOUR SAVINGS"
-        savings_str = f"{rupee} {savings_formatted}"
-
-        c.setFont(FONT_BOLD, savings_font_size)
-        savings_w = c.stringWidth(savings_str, FONT_BOLD, savings_font_size)
-        total_footer_w = badge_w + 3.0 * mm * f_scale + savings_w
-        bx = x + (tw - total_footer_w) / 2.0
-
-        draw_arrow_banner(c, bx, by, badge_w, bh, badge_text, FONT_BOLD, badge_font_size)
-        c.setFillColor(colors.HexColor("#111111"))
-        c.drawString(bx + badge_w + 2.5 * mm * f_scale, by + 1.4 * f_scale, savings_str)
+        val_str = f"{rupee} {savings_formatted}"
     else:
         badge_text = "BEST VALUE"
-        if not is_full_page and not is_half_page:
-            badge_w = 42.0 * mm
-        else:
-            badge_w = badge_w * 0.9
-        rate_str = f"{rupee} {rate_formatted}"
+        val_str = f"{rupee} {rate_formatted}"
 
-        c.setFont(FONT_BOLD, savings_font_size)
-        rate_w = c.stringWidth(rate_str, FONT_BOLD, savings_font_size)
-        total_footer_w = badge_w + 3.0 * mm * f_scale + rate_w
-        bx = x + (tw - total_footer_w) / 2.0
+    savings_font_size = 24.0 * f_scale
+    badge_font_size = 14.5 * f_scale
 
-        draw_arrow_banner(c, bx, by, badge_w, bh, badge_text, FONT_BOLD, badge_font_size)
-        c.setFillColor(colors.HexColor("#111111"))
-        c.drawString(bx + badge_w + 2.5 * mm * f_scale, by + 1.4 * f_scale, rate_str)
+    val_w = c.stringWidth(val_str, FONT_BOLD, savings_font_size)
+    val_x = footer_ix + footer_avail_w - val_w
+    bw = max(20.0 * mm * f_scale, val_x - footer_ix - 2.2 * mm * f_scale)
+
+    while c.stringWidth(badge_text, FONT_BOLD, badge_font_size) > (bw - bh * 0.6) and badge_font_size > 8.0 * f_scale:
+        badge_font_size -= 0.5 * f_scale
+
+    draw_arrow_banner(c, footer_ix, by, bw, bh, badge_text, FONT_BOLD, badge_font_size)
+    c.setFont(FONT_BOLD, savings_font_size)
+    c.setFillColor(colors.HexColor("#111111"))
+    c.drawString(val_x, by + (bh - savings_font_size * 0.72) / 2.0, val_str)
 
 
 # ==============================================================================
@@ -462,8 +493,8 @@ def draw_single_price_tag_option2(
     """
     Renders Option 2: Big Savings / DMart Style Price Tag.
     Adaptively scales across 90x60mm, 190x135mm (Half Page), and 190x277mm (Full Page A4).
-    Dominant headline: '₹ <SAVINGS> Off' at top.
-    Middle: Product Name (and optional promotional yellow banner if active).
+    Dominant headline: '₹ <SAVINGS> Off' scaling to cover the entire upper space.
+    Middle: Product Name (strictly single line whenever possible) and promo yellow banner.
     Bottom: 'MRP ₹ <mrp>' and '<Store Title> ₹ <rate>'.
     Enclosed in a solid rectangular black border.
     """
@@ -539,8 +570,23 @@ def draw_single_price_tag_option2(
     savings_val = item.get("savings", 0.0)
     savings_formatted = item.get("savings_formatted", "0")
 
-    # 3. Middle Section: Product Name (and Promo Yellow Strip if present)
+    # 3. Middle Section: Product Name (strictly single line if possible)
     raw_name = item.get("item_name", "PRODUCT NAME").strip()
+    name_font_size = 11.5 * f_scale
+    if c.stringWidth(raw_name, FONT_BOLD, name_font_size) <= iw:
+        lines = [raw_name]
+    else:
+        single_line = False
+        for candidate_sz in [11.0, 10.5, 10.0, 9.5]:
+            test_sz = candidate_sz * f_scale
+            if c.stringWidth(raw_name, FONT_BOLD, test_sz) <= iw:
+                name_font_size = test_sz
+                lines = [raw_name]
+                single_line = True
+                break
+        if not single_line:
+            name_font_size = 10.2 * f_scale
+            lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, name_font_size, c, max_lines=2)
 
     if has_promo:
         if is_full_page:
@@ -572,32 +618,21 @@ def draw_single_price_tag_option2(
         bw = c.stringWidth(badge_text, FONT_BOLD, p_font_size)
         c.drawString(pbox_x + (pbox_w - bw) / 2.0, pbox_y + (pbox_h - p_font_size) / 2.0 + 1.0 * f_scale, badge_text)
 
-        name_y = pbox_y + pbox_h + 2.5 * mm * f_scale
-        name_font_size = 11.2 * f_scale if len(raw_name) <= 30 else 10.0 * f_scale
-        lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, name_font_size, c, max_lines=2)
-        c.setFont(FONT_BOLD, name_font_size)
-        c.setFillColor(colors.HexColor("#111111"))
-        if len(lines) == 1:
-            c.drawString(ix, name_y + 1.0 * mm * f_scale, lines[0])
-            top_name_y = name_y + 1.0 * mm * f_scale + name_font_size
-        else:
-            c.drawString(ix, name_y + 4.2 * mm * f_scale, lines[0])
-            c.drawString(ix, name_y + 0.5 * mm * f_scale, lines[1])
-            top_name_y = name_y + 4.2 * mm * f_scale + name_font_size
+        name_y = pbox_y + pbox_h + 2.0 * mm * f_scale
     else:
-        name_font_size = (12.0 if len(raw_name) <= 26 else (11.0 if len(raw_name) <= 38 else 10.0)) * f_scale
-        lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, name_font_size, c, max_lines=2)
-        c.setFont(FONT_BOLD, name_font_size)
-        c.setFillColor(colors.HexColor("#111111"))
-        if len(lines) == 1:
-            c.drawString(ix, div_bottom_y + 4.0 * mm * f_scale, lines[0])
-            top_name_y = div_bottom_y + 4.0 * mm * f_scale + name_font_size
-        else:
-            c.drawString(ix, div_bottom_y + 8.0 * mm * f_scale, lines[0])
-            c.drawString(ix, div_bottom_y + 3.0 * mm * f_scale, lines[1])
-            top_name_y = div_bottom_y + 8.0 * mm * f_scale + name_font_size
+        name_y = div_bottom_y + 2.5 * mm * f_scale
 
-    # 4. Top Headline: Giant '₹ <SAVINGS> Off' (As in Option2.jpeg)
+    c.setFont(FONT_BOLD, name_font_size)
+    c.setFillColor(colors.HexColor("#111111"))
+    if len(lines) == 1:
+        c.drawString(ix, name_y, lines[0])
+        top_name_y = name_y + name_font_size * 0.75
+    else:
+        c.drawString(ix, name_y + name_font_size + 1.5 * f_scale, lines[0])
+        c.drawString(ix, name_y, lines[1])
+        top_name_y = name_y + name_font_size * 1.8 + 1.5 * f_scale
+
+    # 4. Top Headline: Giant '₹ <SAVINGS> Off' covering the entire available space
     if savings_val > 0:
         main_val_str = savings_formatted
         suffix_str = "Off"
@@ -605,54 +640,34 @@ def draw_single_price_tag_option2(
         main_val_str = rate_formatted
         suffix_str = "Price"
 
-    if is_full_page:
-        h_mult = 2.8
-    elif is_half_page:
-        h_mult = 2.05
-    else:
-        h_mult = 1.0
-
-    if len(main_val_str) <= 2:
-        val_size = 54.0 * h_mult
-        r_size = 28.0 * h_mult
-        r_raise = 14.0 * h_mult
-        suf_size = 21.0 * h_mult
-        suf_raise = 3.0 * h_mult
-    elif len(main_val_str) <= 3:
-        val_size = 50.0 * h_mult
-        r_size = 26.0 * h_mult
-        r_raise = 13.0 * h_mult
-        suf_size = 20.0 * h_mult
-        suf_raise = 3.0 * h_mult
-    elif len(main_val_str) <= 4:
-        val_size = 42.0 * h_mult
-        r_size = 22.0 * h_mult
-        r_raise = 11.0 * h_mult
-        suf_size = 18.0 * h_mult
-        suf_raise = 2.5 * h_mult
-    else:
-        val_size = 34.0 * h_mult
-        r_size = 18.0 * h_mult
-        r_raise = 9.0 * h_mult
-        suf_size = 16.0 * h_mult
-        suf_raise = 2.0 * h_mult
-
-    # Center headline vertically in top available space
-    top_limit = border_y + border_h - 4.0 * mm * f_scale
-    bottom_limit = top_name_y + 3.0 * mm * f_scale
+    top_limit = border_y + border_h - 2.0 * mm * f_scale
+    bottom_limit = top_name_y + 1.5 * mm * f_scale
     avail_vert = max(10.0, top_limit - bottom_limit)
-    headline_baseline_y = bottom_limit + (avail_vert - (val_size * 0.72)) / 2.0
+    avail_w = border_w - 3.5 * mm * f_scale
 
-    if headline_baseline_y + (val_size * 0.75) > top_limit:
-        headline_baseline_y = top_limit - (val_size * 0.75)
-    if headline_baseline_y < bottom_limit:
-        headline_baseline_y = bottom_limit
+    # Scale font size so off amount covers the entire upper space
+    val_size = (avail_vert * 0.94) / 0.72
+    r_size = val_size * 0.52
+    suf_size = val_size * 0.38
 
     r_w = c.stringWidth(f"{rupee} ", FONT_BOLD, r_size)
     val_w = c.stringWidth(main_val_str, FONT_BOLD, val_size)
     suf_w = c.stringWidth(f" {suffix_str}", FONT_BOLD, suf_size)
     total_hl_w = r_w + val_w + suf_w
 
+    if total_hl_w > avail_w:
+        scale = avail_w / total_hl_w
+        val_size *= scale
+        r_size *= scale
+        suf_size *= scale
+        r_w *= scale
+        val_w *= scale
+        suf_w *= scale
+        total_hl_w = avail_w
+
+    headline_baseline_y = bottom_limit + (avail_vert - (val_size * 0.72)) / 2.0
+    r_raise = val_size * 0.20
+    suf_raise = val_size * 0.06
     hl_x = border_x + (border_w - total_hl_w) / 2.0
 
     c.setFont(FONT_BOLD, r_size)
@@ -663,7 +678,8 @@ def draw_single_price_tag_option2(
     c.drawString(hl_x + r_w, headline_baseline_y, main_val_str)
 
     c.setFont(FONT_BOLD, suf_size)
-    c.drawString(hl_x + r_w + val_w + 3.0 * f_scale, headline_baseline_y + suf_raise, suffix_str)
+    c.drawString(hl_x + r_w + val_w + 2.0 * f_scale, headline_baseline_y + suf_raise, suffix_str)
+
 
 
 # ==============================================================================

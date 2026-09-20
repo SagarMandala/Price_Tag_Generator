@@ -1,7 +1,7 @@
 """
 Main Desktop GUI Application for Supermarket Shelf Price Tag Generator.
 Built with PyQt6, converting Excel pricing into printable 8-tags-per-page A4 PDFs (90mm x 60mm).
-Branded with 'BIG Mart Price', pure white background, and per-row promotional offer dropdowns.
+Branded with 'BIGG Mart Price', pure white background, and per-row promotional offer dropdowns.
 """
 
 import sys
@@ -836,7 +836,7 @@ class PriceTagGeneratorApp(QMainWindow):
             idx = min(self.selected_preview_index, len(self.loaded_items) - 1)
             sample_item = self.loaded_items[idx]
 
-        store_title = self.store_title_input.text().strip() or "BIG Mart Price"
+        store_title = self.store_title_input.text().strip() or "BIGG Mart Price"
         design_style = "option2" if self.design_combo.currentIndex() == 1 else "option1"
         layout_mode = self.get_current_layout_mode()
 
@@ -890,7 +890,7 @@ class PriceTagGeneratorApp(QMainWindow):
         self.progress_bar.setValue(0)
         self.status_message_lbl.setText(f"Generating {layout_cfg['name']} ({tags_per_page} per A4 sheet)...")
 
-        store_title = self.store_title_input.text().strip() or "BIG Mart Price"
+        store_title = self.store_title_input.text().strip() or "BIGG Mart Price"
         show_cut_guides = self.cut_guides_cb.isChecked()
         design_style = "option2" if self.design_combo.currentIndex() == 1 else "option1"
 
@@ -972,7 +972,7 @@ class PriceTagGeneratorApp(QMainWindow):
 # ==============================================================================
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("BIG Mart Price Tag Generator")
+    app.setApplicationName("BIGG Mart Price Tag Generator")
 
     window = PriceTagGeneratorApp()
 
