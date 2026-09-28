@@ -286,9 +286,9 @@ class PriceTagGeneratorApp(QMainWindow):
 
         lbl_title = QLabel("Store Title:")
         lbl_title.setObjectName("fieldLabel")
-        self.store_title_input = QLineEdit("BIG Mart Price")
+        self.store_title_input = QLineEdit("BIGG Mart Price")
         self.store_title_input.setObjectName("textInput")
-        self.store_title_input.setPlaceholderText("e.g. BIG Mart Price")
+        self.store_title_input.setPlaceholderText("e.g. BIGG Mart Price")
         self.store_title_input.textChanged.connect(self.update_live_preview)
         form_row2.addWidget(lbl_title)
         form_row2.addWidget(self.store_title_input, 3)
