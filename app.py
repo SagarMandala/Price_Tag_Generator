@@ -12,13 +12,14 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem,
     QProgressBar, QHeaderView, QLineEdit, QCheckBox, QComboBox,
-    QMessageBox, QFrame, QSizePolicy
+    QMessageBox, QFrame, QSizePolicy, QDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QPixmap, QImage, QDragEnterEvent, QDropEvent
 
 from data_processor import parse_pricing_file, PROMOTIONAL_OFFERS
 from tag_generator import generate_pdf, render_tag_preview_image, get_rupee_symbol, PAGE_LAYOUTS
+from auth_dialog import LoginDialog, ChangePasswordDialog
 
 
 # ==============================================================================
@@ -99,7 +100,7 @@ class PriceTagGeneratorApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("BIG Mart - Supermarket Shelf Price Tag Generator")
+        self.setWindowTitle("BIGG Mart - Supermarket Shelf Price Tag Generator")
         self.setMinimumSize(1150, 800)
         self.resize(1220, 850)
 
@@ -132,7 +133,7 @@ class PriceTagGeneratorApp(QMainWindow):
         header_layout.setContentsMargins(18, 14, 18, 14)
 
         title_vbox = QVBoxLayout()
-        title_lbl = QLabel("BIG Mart - Shelf Price Tag Generator")
+        title_lbl = QLabel("BIGG Mart - Shelf Price Tag Generator")
         title_lbl.setObjectName("appTitle")
         self.subtitle_lbl = QLabel("Convert Excel pricing sheets into printable multi-page A4 PDFs (8, 2, or 1 tag(s) per sheet)")
         self.subtitle_lbl.setObjectName("appSubtitle")
@@ -143,12 +144,21 @@ class PriceTagGeneratorApp(QMainWindow):
         header_layout.addStretch()
 
         badge_box = QHBoxLayout()
+        badge_box.setSpacing(8)
         self.grid_badge = QLabel("📐 8 Tags / A4 Sheet (90x60mm)")
         self.grid_badge.setObjectName("infoBadge")
         rupee_badge = QLabel(f"💱 {get_rupee_symbol()} Unicode Native")
         rupee_badge.setObjectName("infoBadge")
+
+        self.change_pwd_btn = QPushButton("🔒 Change Password")
+        self.change_pwd_btn.setObjectName("headerPwdBtn")
+        self.change_pwd_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.change_pwd_btn.setToolTip("Change the application startup password")
+        self.change_pwd_btn.clicked.connect(self.open_change_password_dialog)
+
         badge_box.addWidget(self.grid_badge)
         badge_box.addWidget(rupee_badge)
+        badge_box.addWidget(self.change_pwd_btn)
         header_layout.addLayout(badge_box)
 
         main_layout.addWidget(header_frame)
@@ -426,6 +436,20 @@ class PriceTagGeneratorApp(QMainWindow):
                 padding: 6px 12px;
                 border-radius: 6px;
                 border: 1px solid #E2E8F0;
+            }
+            #headerPwdBtn {
+                background-color: #FFFFFF;
+                color: #1E293B;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 6px 14px;
+                border-radius: 6px;
+                border: 1px solid #CBD5E1;
+            }
+            #headerPwdBtn:hover {
+                background-color: #F1F5F9;
+                color: #0F172A;
+                border-color: #94A3B8;
             }
             #cardFrame {
                 background-color: #FFFFFF;
@@ -966,6 +990,10 @@ class PriceTagGeneratorApp(QMainWindow):
                 folder = os.path.dirname(self.generated_pdf_path)
                 os.startfile(folder)
 
+    def open_change_password_dialog(self):
+        dlg = ChangePasswordDialog(self)
+        dlg.exec()
+
 
 # ==============================================================================
 # MAIN ENTRY POINT
@@ -973,6 +1001,11 @@ class PriceTagGeneratorApp(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("BIGG Mart Price Tag Generator")
+
+    # Security check: prompt for password before showing main app
+    login_dlg = LoginDialog()
+    if login_dlg.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)
 
     window = PriceTagGeneratorApp()
 

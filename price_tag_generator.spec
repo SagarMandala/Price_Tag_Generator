@@ -28,6 +28,8 @@ hiddenimports = [
     'PIL',
     'PIL.Image',
     'pandas',
+    'auth_manager',
+    'auth_dialog',
 ]
 hiddenimports += collect_submodules('reportlab')
 
