@@ -152,6 +152,22 @@ PAGE_LAYOUTS = {
         "row_gap": 5.0 * mm,
         "page_size": A4,
     },
+    "4_tags_frame": {
+        "id": "4_tags_frame",
+        "name": "4 Tags / A4 Sheet (4\" Shelf Frame - 95x102mm / 3\" Visible)",
+        "short_name": "4 Tags / A4 (4\" Frame)",
+        "tags_per_page": 4,
+        "cols": 2,
+        "rows": 2,
+        "tag_w": 95.0 * mm,
+        "tag_h": 101.6 * mm,
+        "lip_top": 12.7 * mm,
+        "lip_bottom": 12.7 * mm,
+        "visible_h": 76.2 * mm,
+        "col_gap": 6.0 * mm,
+        "row_gap": 10.0 * mm,
+        "page_size": A4,
+    },
     "2_tags": {
         "id": "2_tags",
         "name": "2 Tags / A4 Sheet (Half Page A5 - Promo Posters)",
@@ -194,11 +210,12 @@ def draw_single_price_tag_option1(
     tag_bg_color: str = "#FFFFFF",
     store_title: str = "BIGG Mart Price",
     validity_text: str = "",
-    show_cut_guides: bool = True
+    show_cut_guides: bool = True,
+    layout_mode: str = "8_tags"
 ):
     """
     Renders Option 1: Modern shelf price tag.
-    Adaptively scales across 90x60mm, 190x135mm (Half Page), and 190x277mm (Full Page A4).
+    Adaptively scales across 90x60mm, 4" Shelf Frame (95x102mm / 3" visible), 190x135mm (Half Page), and 190x277mm (Full Page A4).
     Pure white background, no QR code, no side margin text.
     Accommodates promotional offer yellow box and prominent 'YOUR SAVINGS' banner.
     """
@@ -209,22 +226,37 @@ def draw_single_price_tag_option1(
 
     is_full_page = tw > 240.0 * mm        # 1 tag (277x190mm Landscape)
     is_half_page = 120.0 * mm < tw <= 240.0 * mm # 2 tags (190x135mm)
+    is_frame_4in = (layout_mode == "4_tags_frame") or (98.0 * mm <= th <= 105.0 * mm and tw < 150.0 * mm)
 
-    if is_full_page:
-        header_h = 30.0 * mm
-        footer_h = 40.0 * mm
-        f_scale = 3.0
-        price_f_scale = 3.0
-    elif is_half_page:
-        header_h = 23.0 * mm
-        footer_h = 31.0 * mm
-        f_scale = 2.1
-        price_f_scale = 2.1
+    if is_frame_4in:
+        lip_top = 12.7 * mm
+        lip_bottom = 12.7 * mm
+        active_y = y + lip_bottom
+        active_h = th - lip_top - lip_bottom
+        header_h = 14.5 * mm
+        footer_h = 17.5 * mm
+        f_scale = 1.25
+        price_f_scale = 1.25
     else:
-        header_h = 11.2 * mm
-        footer_h = 13.8 * mm
-        f_scale = 1.0
-        price_f_scale = 1.0
+        lip_top = 0.0
+        lip_bottom = 0.0
+        active_y = y
+        active_h = th
+        if is_full_page:
+            header_h = 30.0 * mm
+            footer_h = 40.0 * mm
+            f_scale = 3.0
+            price_f_scale = 3.0
+        elif is_half_page:
+            header_h = 23.0 * mm
+            footer_h = 31.0 * mm
+            f_scale = 2.1
+            price_f_scale = 2.1
+        else:
+            header_h = 11.2 * mm
+            footer_h = 13.8 * mm
+            f_scale = 1.0
+            price_f_scale = 1.0
 
     # 1. Background Fill
     c.setFillColor(colors.HexColor(tag_bg_color))
@@ -238,13 +270,23 @@ def draw_single_price_tag_option1(
         c.rect(x, y, tw, th, fill=0, stroke=1)
         c.setDash()
 
+    # If 4-inch frame tag: draw subtle indicator lines showing the 0.5" frame lips
+    if is_frame_4in:
+        c.saveState()
+        c.setStrokeColor(colors.HexColor("#CBD5E1"))
+        c.setLineWidth(0.5)
+        c.setDash(2, 3)
+        c.line(x, y + lip_bottom, x + tw, y + lip_bottom)
+        c.line(x, y + th - lip_top, x + tw, y + th - lip_top)
+        c.restoreState()
+
     # Usable inner bounds
     ix = x + 3.8 * mm * sx
     iw = tw - 7.6 * mm * sx
 
     # Top & bottom dividers for middle section
-    div1_y = y + th - header_h
-    div2_y = y + footer_h
+    div1_y = active_y + active_h - header_h
+    div2_y = active_y + footer_h
 
     # 2. Header Section: Product Name (Single line always, split only if text exceeds bounds)
     raw_name = item.get("item_name", "PRODUCT NAME").strip()
@@ -302,6 +344,9 @@ def draw_single_price_tag_option1(
     elif is_half_page:
         sub_row_h = 11.5 * mm
         sub_gap = 1.8 * mm
+    elif is_frame_4in:
+        sub_row_h = 7.8 * mm
+        sub_gap = 1.5 * mm
     else:
         sub_row_h = 6.2 * mm * f_scale
         sub_gap = 1.2 * mm * f_scale
@@ -426,7 +471,7 @@ def draw_single_price_tag_option1(
 
     # 5. Footer Section: Bigger YOUR SAVINGS (both text and amount cover entire space after bottom line)
     bh = footer_h - 1.8 * mm * f_scale
-    by = y + (footer_h - bh) / 2.0
+    by = active_y + (footer_h - bh) / 2.0
 
     savings_val = item.get("savings", 0.0)
     savings_formatted = item.get("savings_formatted", "0")
@@ -470,11 +515,12 @@ def draw_single_price_tag_option2(
     tag_bg_color: str = "#FFFFFF",
     store_title: str = "BIGG Mart Price",
     validity_text: str = "",
-    show_cut_guides: bool = True
+    show_cut_guides: bool = True,
+    layout_mode: str = "8_tags"
 ):
     """
     Renders Option 2: Big Savings / DMart Style Price Tag.
-    Adaptively scales across 90x60mm, 190x135mm (Half Page), and 190x277mm (Full Page A4).
+    Adaptively scales across 90x60mm, 4" Shelf Frame (95x102mm / 3" visible), 190x135mm (Half Page), and 190x277mm (Full Page A4).
     Dominant headline: '₹ <SAVINGS> Off' scaling to cover the entire upper space.
     Middle: Product Name (strictly single line whenever possible) and promo yellow banner.
     Bottom: 'MRP ₹ <mrp>' and '<Store Title> ₹ <rate>'.
@@ -487,19 +533,33 @@ def draw_single_price_tag_option2(
 
     is_full_page = tw > 240.0 * mm        # 1 tag (277x190mm Landscape)
     is_half_page = 120.0 * mm < tw <= 240.0 * mm # 2 tags (190x135mm)
+    is_frame_4in = (layout_mode == "4_tags_frame") or (98.0 * mm <= th <= 105.0 * mm and tw < 150.0 * mm)
 
-    if is_full_page:
-        f_scale = 2.8
-        border_margin = 5.0 * mm
-        bottom_h = 24.0 * mm
-    elif is_half_page:
-        f_scale = 2.1
-        border_margin = 4.0 * mm
-        bottom_h = 18.0 * mm
+    if is_frame_4in:
+        lip_top = 12.7 * mm
+        lip_bottom = 12.7 * mm
+        active_y = y + lip_bottom
+        active_h = th - lip_top - lip_bottom
+        f_scale = 1.25
+        border_margin = 2.5 * mm
+        bottom_h = 11.0 * mm
     else:
-        f_scale = 1.0
-        border_margin = 2.2 * mm
-        bottom_h = 8.8 * mm
+        lip_top = 0.0
+        lip_bottom = 0.0
+        active_y = y
+        active_h = th
+        if is_full_page:
+            f_scale = 2.8
+            border_margin = 5.0 * mm
+            bottom_h = 24.0 * mm
+        elif is_half_page:
+            f_scale = 2.1
+            border_margin = 4.0 * mm
+            bottom_h = 18.0 * mm
+        else:
+            f_scale = 1.0
+            border_margin = 2.2 * mm
+            bottom_h = 8.8 * mm
 
     # 1. Background Fill
     c.setFillColor(colors.HexColor(tag_bg_color))
@@ -513,11 +573,21 @@ def draw_single_price_tag_option2(
         c.rect(x, y, tw, th, fill=0, stroke=1)
         c.setDash()
 
+    # If 4-inch frame tag: draw subtle indicator lines showing the 0.5" frame lips
+    if is_frame_4in:
+        c.saveState()
+        c.setStrokeColor(colors.HexColor("#CBD5E1"))
+        c.setLineWidth(0.5)
+        c.setDash(2, 3)
+        c.line(x, y + lip_bottom, x + tw, y + lip_bottom)
+        c.line(x, y + th - lip_top, x + tw, y + th - lip_top)
+        c.restoreState()
+
     # Inner Solid Black Border
     border_x = x + border_margin
-    border_y = y + border_margin
+    border_y = active_y + border_margin
     border_w = tw - (border_margin * 2)
-    border_h = th - (border_margin * 2)
+    border_h = active_h - (border_margin * 2)
 
     c.setStrokeColor(colors.HexColor("#111111"))
     c.setLineWidth(1.8 * f_scale)
@@ -579,6 +649,10 @@ def draw_single_price_tag_option2(
             pbox_h = 14.5 * mm
             pbox_y = div_bottom_y + 2.5 * mm
             p_font_size = 18.0
+        elif is_frame_4in:
+            pbox_h = 8.5 * mm
+            pbox_y = div_bottom_y + 2.0 * mm
+            p_font_size = 11.0
         else:
             pbox_h = 6.8 * mm
             pbox_y = div_bottom_y + 1.5 * mm
@@ -678,7 +752,8 @@ def draw_single_price_tag(
     store_title: str = "BIGG Mart Price",
     validity_text: str = "",
     show_cut_guides: bool = True,
-    design_style: str = "option1"
+    design_style: str = "option1",
+    layout_mode: str = "8_tags"
 ):
     """
     Renders a single tag according to the chosen design style.
@@ -695,7 +770,8 @@ def draw_single_price_tag(
             tag_bg_color=tag_bg_color,
             store_title=store_title,
             validity_text=validity_text,
-            show_cut_guides=show_cut_guides
+            show_cut_guides=show_cut_guides,
+            layout_mode=layout_mode
         )
     else:
         draw_single_price_tag_option1(
@@ -708,12 +784,13 @@ def draw_single_price_tag(
             tag_bg_color=tag_bg_color,
             store_title=store_title,
             validity_text=validity_text,
-            show_cut_guides=show_cut_guides
+            show_cut_guides=show_cut_guides,
+            layout_mode=layout_mode
         )
 
 
 # ==============================================================================
-# FULL MULTI-PAGE PDF GENERATOR (Supports 8, 2, or 1 Tag per A4 Sheet)
+# FULL MULTI-PAGE PDF GENERATOR (Supports 8, 4, 2, or 1 Tag per A4 Sheet)
 # ==============================================================================
 def generate_pdf(
     items: list[dict],
@@ -727,7 +804,7 @@ def generate_pdf(
     progress_callback=None
 ) -> str:
     """
-    Generates a printable A4 PDF with 8, 2, or 1 tag(s) per sheet using the selected layout and design.
+    Generates a printable A4 PDF with 8, 4, 2, or 1 tag(s) per sheet using the selected layout and design.
     """
     if not items:
         raise ValueError("No items provided to generate price tags.")
@@ -779,7 +856,8 @@ def generate_pdf(
             store_title=store_title,
             validity_text="",
             show_cut_guides=show_cut_guides,
-            design_style=design_style
+            design_style=design_style,
+            layout_mode=layout_mode
         )
 
         if progress_callback:
@@ -819,7 +897,8 @@ def render_tag_preview_image(
         store_title=store_title,
         validity_text="",
         show_cut_guides=False,
-        design_style=design_style
+        design_style=design_style,
+        layout_mode=layout_mode
     )
     c.save()
     bio.seek(0)
@@ -828,6 +907,6 @@ def render_tag_preview_image(
     pdf = pdfium.PdfDocument(bio)
     page = pdf[0]
     # For large posters, scale 2.0 provides plenty of crisp resolution without huge memory
-    scale_val = 3.0 if layout_mode == "8_tags" else (2.0 if layout_mode == "2_tags" else 1.5)
+    scale_val = 3.0 if layout_mode in ["8_tags", "4_tags_frame"] else (2.0 if layout_mode == "2_tags" else 1.5)
     pil_image = page.render(scale=scale_val).to_pil()
     return pil_image
