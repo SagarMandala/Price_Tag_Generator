@@ -152,21 +152,21 @@ PAGE_LAYOUTS = {
         "row_gap": 5.0 * mm,
         "page_size": A4,
     },
-    "4_tags_frame": {
-        "id": "4_tags_frame",
-        "name": "4 Tags / A4 Sheet (4\" Shelf Frame - 95x102mm / 3\" Visible)",
-        "short_name": "4 Tags / A4 (4\" Frame)",
-        "tags_per_page": 4,
-        "cols": 2,
-        "rows": 2,
-        "tag_w": 95.0 * mm,
-        "tag_h": 101.6 * mm,
-        "lip_top": 12.7 * mm,
-        "lip_bottom": 12.7 * mm,
-        "visible_h": 76.2 * mm,
-        "col_gap": 6.0 * mm,
-        "row_gap": 10.0 * mm,
-        "page_size": A4,
+    "15_tags_frame": {
+        "id": "15_tags_frame",
+        "name": "15 Tags / A4 Sheet (4cm Shelf Frame - 90x40mm / 3cm Visible)",
+        "short_name": "15 Tags / A4 (4cm Frame)",
+        "tags_per_page": 15,
+        "cols": 3,
+        "rows": 5,
+        "tag_w": 90.0 * mm,
+        "tag_h": 40.0 * mm,
+        "lip_top": 5.0 * mm,
+        "lip_bottom": 5.0 * mm,
+        "visible_h": 30.0 * mm,
+        "col_gap": 4.5 * mm,
+        "row_gap": 0.0 * mm,
+        "page_size": landscape(A4),
     },
     "2_tags": {
         "id": "2_tags",
@@ -195,6 +195,8 @@ PAGE_LAYOUTS = {
         "page_size": landscape(A4),
     }
 }
+# Backward compatibility alias
+PAGE_LAYOUTS["4_tags_frame"] = PAGE_LAYOUTS["15_tags_frame"]
 
 
 # ==============================================================================
@@ -226,17 +228,17 @@ def draw_single_price_tag_option1(
 
     is_full_page = tw > 240.0 * mm        # 1 tag (277x190mm Landscape)
     is_half_page = 120.0 * mm < tw <= 240.0 * mm # 2 tags (190x135mm)
-    is_frame_4in = (layout_mode == "4_tags_frame") or (98.0 * mm <= th <= 105.0 * mm and tw < 150.0 * mm)
+    is_frame_4cm = (layout_mode in ["15_tags_frame", "4_tags_frame"]) or (35.0 * mm <= th <= 48.0 * mm)
 
-    if is_frame_4in:
-        lip_top = 12.7 * mm
-        lip_bottom = 12.7 * mm
+    if is_frame_4cm:
+        lip_top = 5.0 * mm
+        lip_bottom = 5.0 * mm
         active_y = y + lip_bottom
         active_h = th - lip_top - lip_bottom
-        header_h = 14.5 * mm
-        footer_h = 17.5 * mm
-        f_scale = 1.25
-        price_f_scale = 1.25
+        header_h = 6.6 * mm
+        footer_h = 6.8 * mm
+        f_scale = 0.58 * sx
+        price_f_scale = 0.58 * sx
     else:
         lip_top = 0.0
         lip_bottom = 0.0
@@ -270,19 +272,19 @@ def draw_single_price_tag_option1(
         c.rect(x, y, tw, th, fill=0, stroke=1)
         c.setDash()
 
-    # If 4-inch frame tag: draw subtle indicator lines showing the 0.5" frame lips
-    if is_frame_4in:
+    # If 4cm frame tag: draw subtle indicator lines showing the 0.5 cm (5mm) frame lips
+    if is_frame_4cm:
         c.saveState()
         c.setStrokeColor(colors.HexColor("#CBD5E1"))
-        c.setLineWidth(0.5)
+        c.setLineWidth(0.4)
         c.setDash(2, 3)
         c.line(x, y + lip_bottom, x + tw, y + lip_bottom)
         c.line(x, y + th - lip_top, x + tw, y + th - lip_top)
         c.restoreState()
 
     # Usable inner bounds
-    ix = x + 3.8 * mm * sx
-    iw = tw - 7.6 * mm * sx
+    ix = x + (3.0 if is_frame_4cm else 3.8) * mm * sx
+    iw = tw - (6.0 if is_frame_4cm else 7.6) * mm * sx
 
     # Top & bottom dividers for middle section
     div1_y = active_y + active_h - header_h
@@ -290,20 +292,21 @@ def draw_single_price_tag_option1(
 
     # 2. Header Section: Product Name (Single line always, split only if text exceeds bounds)
     raw_name = item.get("item_name", "PRODUCT NAME").strip()
-    header_font_size = 11.2 * f_scale
+    header_font_size = (7.5 * sx) if is_frame_4cm else (11.2 * f_scale)
     if c.stringWidth(raw_name, FONT_BOLD, header_font_size) <= iw:
         lines = [raw_name]
     else:
         single_line = False
-        for candidate_sz in [10.8, 10.2, 9.8, 9.2]:
-            test_sz = candidate_sz * f_scale
+        candidates = [7.0, 6.5, 6.0] if is_frame_4cm else [10.8, 10.2, 9.8, 9.2]
+        for candidate_sz in candidates:
+            test_sz = (candidate_sz * sx) if is_frame_4cm else (candidate_sz * f_scale)
             if c.stringWidth(raw_name, FONT_BOLD, test_sz) <= iw:
                 header_font_size = test_sz
                 lines = [raw_name]
                 single_line = True
                 break
         if not single_line:
-            header_font_size = 10.0 * f_scale
+            header_font_size = (6.0 * sx) if is_frame_4cm else (10.0 * f_scale)
             lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, header_font_size, c, max_lines=2)
 
     c.setFillColor(colors.HexColor("#111111"))
@@ -313,15 +316,15 @@ def draw_single_price_tag_option1(
         line_y = div1_y + (header_h - header_font_size * 0.75) / 2.0
         c.drawString(ix, line_y, lines[0])
     else:
-        total_text_h = 2 * header_font_size + 2.0 * f_scale
+        total_text_h = 2 * header_font_size + (1.0 if is_frame_4cm else 2.0 * f_scale)
         base_y = div1_y + (header_h - total_text_h) / 2.0
-        c.drawString(ix, base_y + header_font_size + 2.0 * f_scale, lines[0])
+        c.drawString(ix, base_y + header_font_size + (1.0 if is_frame_4cm else 2.0 * f_scale), lines[0])
         c.drawString(ix, base_y, lines[1])
 
     # Top Divider Line below header
     c.setStrokeColor(colors.HexColor("#1A1A1A"))
-    c.setLineWidth(0.75 * f_scale)
-    c.line(x + 2.5 * mm * sx, div1_y, x + tw - 2.5 * mm * sx, div1_y)
+    c.setLineWidth(0.6 if is_frame_4cm else 0.75 * f_scale)
+    c.line(x + (2.0 if is_frame_4cm else 2.5) * mm * sx, div1_y, x + tw - (2.0 if is_frame_4cm else 2.5) * mm * sx, div1_y)
 
     # 3. Middle Pricing Section
     # Left Half: Store Title ("BIGG MART PRICE" occupying ~85-90% upper space)
@@ -344,16 +347,16 @@ def draw_single_price_tag_option1(
     elif is_half_page:
         sub_row_h = 11.5 * mm
         sub_gap = 1.8 * mm
-    elif is_frame_4in:
-        sub_row_h = 7.8 * mm
-        sub_gap = 1.5 * mm
+    elif is_frame_4cm:
+        sub_row_h = 4.2 * mm
+        sub_gap = 0.8 * mm
     else:
         sub_row_h = 6.2 * mm * f_scale
         sub_gap = 1.2 * mm * f_scale
 
     sub_row_y = div2_y + sub_gap
 
-    col_gap = 1.8 * mm * sx
+    col_gap = 1.5 * mm * sx if is_frame_4cm else 1.8 * mm * sx
     left_w = 34.0 * mm * sx
     right_w = iw - left_w - col_gap
     left_x = ix
@@ -368,23 +371,24 @@ def draw_single_price_tag_option1(
 
         c.setFillColor(colors.HexColor("#FFE500"))
         c.setStrokeColor(colors.HexColor("#1A1A1A"))
-        c.setLineWidth(0.8 * f_scale)
-        c.roundRect(pbox_x, pbox_y, pbox_w, pbox_h, 1.4 * mm * f_scale, fill=1, stroke=1)
+        c.setLineWidth(0.6 if is_frame_4cm else 0.8 * f_scale)
+        c.roundRect(pbox_x, pbox_y, pbox_w, pbox_h, (1.0 if is_frame_4cm else 1.4) * mm * f_scale, fill=1, stroke=1)
 
         badge_text = str(offer).strip().upper()
-        off_sz = 8.8 * f_scale
-        while c.stringWidth(badge_text, FONT_BOLD, off_sz) > (pbox_w - 2.5 * mm * sx) and off_sz > 5.5 * f_scale:
-            off_sz -= 0.5 * f_scale
+        off_sz = (6.4 * sx) if is_frame_4cm else (8.8 * f_scale)
+        min_off_sz = 4.5 if is_frame_4cm else (5.5 * f_scale)
+        while c.stringWidth(badge_text, FONT_BOLD, off_sz) > (pbox_w - (2.0 if is_frame_4cm else 2.5) * mm * sx) and off_sz > min_off_sz:
+            off_sz -= 0.3 if is_frame_4cm else (0.5 * f_scale)
         c.setFont(FONT_BOLD, off_sz)
         c.setFillColor(colors.HexColor("#111111"))
         ot_w = c.stringWidth(badge_text, FONT_BOLD, off_sz)
-        c.drawString(pbox_x + (pbox_w - ot_w) / 2.0, pbox_y + (pbox_h - off_sz) / 2.0 + 0.8 * f_scale, badge_text)
+        c.drawString(pbox_x + (pbox_w - ot_w) / 2.0, pbox_y + (pbox_h - off_sz) / 2.0 + (0.5 if is_frame_4cm else 0.8 * f_scale), badge_text)
 
-        title_bot_y = pbox_y + pbox_h + 1.2 * mm * f_scale
+        title_bot_y = pbox_y + pbox_h + (0.8 if is_frame_4cm else 1.2 * mm * f_scale)
     else:
-        title_bot_y = div2_y + 1.2 * mm * f_scale
+        title_bot_y = div2_y + (0.8 if is_frame_4cm else 1.2 * mm * f_scale)
 
-    title_top_y = div1_y - 1.0 * mm * f_scale
+    title_top_y = div1_y - (0.8 if is_frame_4cm else 1.0 * mm * f_scale)
     avail_title_h = title_top_y - title_bot_y
     c.setFillColor(colors.HexColor("#111111"))
 
@@ -402,9 +406,10 @@ def draw_single_price_tag_option1(
         mid_w = len(title_words) // 2
         title_lines = [" ".join(title_words[:mid_w]), " ".join(title_words[mid_w:])]
 
-    t_sz = 17.5 * price_f_scale
-    while any(c.stringWidth(l, FONT_BOLD, t_sz) > left_w for l in title_lines) and t_sz > 9.5 * price_f_scale:
-        t_sz -= 0.5 * price_f_scale
+    t_sz = (8.5 * sx) if is_frame_4cm else (17.5 * price_f_scale)
+    min_t_sz = 5.0 if is_frame_4cm else (9.5 * price_f_scale)
+    while any(c.stringWidth(l, FONT_BOLD, t_sz) > left_w for l in title_lines) and t_sz > min_t_sz:
+        t_sz -= 0.3 if is_frame_4cm else (0.5 * price_f_scale)
 
     spacing = t_sz * 1.15
     total_th = (len(title_lines) - 1) * spacing + t_sz * 0.75
@@ -417,9 +422,10 @@ def draw_single_price_tag_option1(
     # --- RIGHT HALF: Striked MRP (bottom) & Giant PRICE (upper) ---
     if has_discount:
         full_mrp = f"MRP: {rupee} {mrp_formatted}"
-        mrp_sz = 12.0 * price_f_scale
-        while c.stringWidth(full_mrp, FONT_BOLD, mrp_sz) > right_w and mrp_sz > 7.5 * price_f_scale:
-            mrp_sz -= 0.5 * price_f_scale
+        mrp_sz = (7.0 * sx) if is_frame_4cm else (12.0 * price_f_scale)
+        min_mrp_sz = 5.0 if is_frame_4cm else (7.5 * price_f_scale)
+        while c.stringWidth(full_mrp, FONT_BOLD, mrp_sz) > right_w and mrp_sz > min_mrp_sz:
+            mrp_sz -= 0.3 if is_frame_4cm else (0.5 * price_f_scale)
         mw = c.stringWidth(full_mrp, FONT_BOLD, mrp_sz)
         mrp_x = right_x + (right_w - mw) / 2.0
         mrp_y = sub_row_y + (sub_row_h - mrp_sz * 0.75) / 2.0
@@ -430,21 +436,22 @@ def draw_single_price_tag_option1(
         price_val_w = c.stringWidth(mrp_formatted, FONT_BOLD, mrp_sz)
         st_x = mrp_x + prefix_w
         st_y = mrp_y + mrp_sz * 0.36
-        c.setLineWidth(1.4 * price_f_scale)
+        c.setLineWidth(1.0 if is_frame_4cm else 1.4 * price_f_scale)
         c.setStrokeColor(colors.HexColor("#111111"))
         c.line(st_x, st_y, st_x + price_val_w, st_y)
 
-        giant_base_y = sub_row_y + sub_row_h + 0.8 * mm * f_scale
-        avail_giant_h = div1_y - 0.8 * mm * f_scale - giant_base_y
+        giant_base_y = sub_row_y + sub_row_h + (0.6 if is_frame_4cm else 0.8 * mm * f_scale)
+        avail_giant_h = div1_y - (0.6 if is_frame_4cm else 0.8 * mm * f_scale) - giant_base_y
     else:
         # Same price / no discount: no striked MRP, price gets full vertical height
-        giant_base_y = div2_y + 0.8 * mm * f_scale
-        avail_giant_h = div1_y - 0.8 * mm * f_scale - giant_base_y
+        giant_base_y = div2_y + (0.6 if is_frame_4cm else 0.8 * mm * f_scale)
+        avail_giant_h = div1_y - (0.6 if is_frame_4cm else 0.8 * mm * f_scale) - giant_base_y
 
-    target_giant_sz = avail_giant_h / 0.70
-    giant_sz = min((84.0 if has_discount else 108.0) * price_f_scale, target_giant_sz)
+    target_giant_sz = avail_giant_h / 0.72
+    base_max_sz = ((34.0 if has_discount else 44.0) * sx) if is_frame_4cm else ((84.0 if has_discount else 108.0) * price_f_scale)
+    giant_sz = min(base_max_sz, target_giant_sz)
     rupee_sz = giant_sz * 0.36
-    r_w = c.stringWidth(rupee, FONT_BOLD, rupee_sz) + 1.0 * mm * sx
+    r_w = c.stringWidth(rupee, FONT_BOLD, rupee_sz) + (0.8 if is_frame_4cm else 1.0) * mm * sx
     val_w = c.stringWidth(rate_formatted, FONT_BOLD, giant_sz)
     total_rate_w = r_w + val_w
 
@@ -465,19 +472,19 @@ def draw_single_price_tag_option1(
     c.drawString(offer_x + r_w, giant_base_y, rate_formatted)
 
     # Bottom Middle Divider Line
-    c.setLineWidth(0.75 * f_scale)
+    c.setLineWidth(0.6 if is_frame_4cm else 0.75 * f_scale)
     c.setStrokeColor(colors.HexColor("#1A1A1A"))
-    c.line(x + 2.5 * mm * sx, div2_y, x + tw - 2.5 * mm * sx, div2_y)
+    c.line(x + (2.0 if is_frame_4cm else 2.5) * mm * sx, div2_y, x + tw - (2.0 if is_frame_4cm else 2.5) * mm * sx, div2_y)
 
     # 5. Footer Section: Bigger YOUR SAVINGS (both text and amount cover entire space after bottom line)
-    bh = footer_h - 1.8 * mm * f_scale
+    bh = footer_h - (1.4 if is_frame_4cm else 1.8 * mm * f_scale)
     by = active_y + (footer_h - bh) / 2.0
 
     savings_val = item.get("savings", 0.0)
     savings_formatted = item.get("savings_formatted", "0")
 
-    footer_ix = x + 3.0 * mm * sx
-    footer_avail_w = tw - 6.0 * mm * sx
+    footer_ix = x + (2.5 if is_frame_4cm else 3.0) * mm * sx
+    footer_avail_w = tw - (5.0 if is_frame_4cm else 6.0) * mm * sx
 
     if savings_val > 0:
         badge_text = "YOUR SAVINGS"
@@ -486,15 +493,16 @@ def draw_single_price_tag_option1(
         badge_text = "BEST VALUE"
         val_str = f"{rupee} {rate_formatted}"
 
-    savings_font_size = 24.0 * f_scale
-    badge_font_size = 14.5 * f_scale
+    savings_font_size = (11.0 * sx) if is_frame_4cm else (24.0 * f_scale)
+    badge_font_size = (7.0 * sx) if is_frame_4cm else (14.5 * f_scale)
+    min_badge_sz = 5.0 if is_frame_4cm else (8.0 * f_scale)
 
     val_w = c.stringWidth(val_str, FONT_BOLD, savings_font_size)
     val_x = footer_ix + footer_avail_w - val_w
-    bw = max(20.0 * mm * f_scale, val_x - footer_ix - 2.2 * mm * f_scale)
+    bw = max((16.0 * mm * sx) if is_frame_4cm else (20.0 * mm * f_scale), val_x - footer_ix - 2.0 * mm * sx)
 
-    while c.stringWidth(badge_text, FONT_BOLD, badge_font_size) > (bw - bh * 0.6) and badge_font_size > 8.0 * f_scale:
-        badge_font_size -= 0.5 * f_scale
+    while c.stringWidth(badge_text, FONT_BOLD, badge_font_size) > (bw - bh * 0.6) and badge_font_size > min_badge_sz:
+        badge_font_size -= 0.3 if is_frame_4cm else (0.5 * f_scale)
 
     draw_arrow_banner(c, footer_ix, by, bw, bh, badge_text, FONT_BOLD, badge_font_size)
     c.setFont(FONT_BOLD, savings_font_size)
@@ -533,16 +541,16 @@ def draw_single_price_tag_option2(
 
     is_full_page = tw > 240.0 * mm        # 1 tag (277x190mm Landscape)
     is_half_page = 120.0 * mm < tw <= 240.0 * mm # 2 tags (190x135mm)
-    is_frame_4in = (layout_mode == "4_tags_frame") or (98.0 * mm <= th <= 105.0 * mm and tw < 150.0 * mm)
+    is_frame_4cm = (layout_mode in ["15_tags_frame", "4_tags_frame"]) or (35.0 * mm <= th <= 48.0 * mm)
 
-    if is_frame_4in:
-        lip_top = 12.7 * mm
-        lip_bottom = 12.7 * mm
+    if is_frame_4cm:
+        lip_top = 5.0 * mm
+        lip_bottom = 5.0 * mm
         active_y = y + lip_bottom
         active_h = th - lip_top - lip_bottom
-        f_scale = 1.25
-        border_margin = 2.5 * mm
-        bottom_h = 11.0 * mm
+        f_scale = 0.58 * sx
+        border_margin = 1.0 * mm
+        bottom_h = 5.5 * mm
     else:
         lip_top = 0.0
         lip_bottom = 0.0
@@ -573,11 +581,11 @@ def draw_single_price_tag_option2(
         c.rect(x, y, tw, th, fill=0, stroke=1)
         c.setDash()
 
-    # If 4-inch frame tag: draw subtle indicator lines showing the 0.5" frame lips
-    if is_frame_4in:
+    # If 4cm frame tag: draw subtle indicator lines showing the 0.5 cm (5mm) frame lips
+    if is_frame_4cm:
         c.saveState()
         c.setStrokeColor(colors.HexColor("#CBD5E1"))
-        c.setLineWidth(0.5)
+        c.setLineWidth(0.4)
         c.setDash(2, 3)
         c.line(x, y + lip_bottom, x + tw, y + lip_bottom)
         c.line(x, y + th - lip_top, x + tw, y + th - lip_top)
@@ -590,30 +598,30 @@ def draw_single_price_tag_option2(
     border_h = active_h - (border_margin * 2)
 
     c.setStrokeColor(colors.HexColor("#111111"))
-    c.setLineWidth(1.8 * f_scale)
+    c.setLineWidth(1.2 if is_frame_4cm else 1.8 * f_scale)
     c.rect(border_x, border_y, border_w, border_h, fill=0, stroke=1)
 
-    ix = border_x + 3.0 * mm * f_scale
-    iw = border_w - 6.0 * mm * f_scale
+    ix = border_x + (2.0 if is_frame_4cm else 3.0) * mm * f_scale
+    iw = border_w - (4.0 if is_frame_4cm else 6.0) * mm * f_scale
 
     # Bottom pricing row divider line
     div_bottom_y = border_y + bottom_h
     c.setStrokeColor(colors.HexColor("#1A1A1A"))
-    c.setLineWidth(0.75 * f_scale)
+    c.setLineWidth(0.6 if is_frame_4cm else 0.75 * f_scale)
     c.line(border_x, div_bottom_y, border_x + border_w, div_bottom_y)
 
     # 2. Bottom Row: MRP and Store Price (Side by Side)
     mrp_formatted = item.get("mrp_formatted", "0")
     mrp_text = f"MRP {rupee} {mrp_formatted}"
-    c.setFont(FONT_BOLD, 10.8 * f_scale)
+    c.setFont(FONT_BOLD, 7.0 if is_frame_4cm else 10.8 * f_scale)
     c.setFillColor(colors.HexColor("#111111"))
-    c.drawString(ix, border_y + 2.8 * mm * f_scale, mrp_text)
+    c.drawString(border_x + (2.0 if is_frame_4cm else 3.0) * mm * f_scale, border_y + (1.8 if is_frame_4cm else 2.8 * mm * f_scale), mrp_text)
 
     # Right: Store Title Price (e.g. "BIG Mart Price ₹ 515")
     rate_formatted = item.get("rate_formatted", "0")
     store_text = f"{store_title} {rupee} {rate_formatted}"
-    c.setFont(FONT_BOLD, 11.2 * f_scale)
-    c.drawRightString(border_x + border_w - 3.0 * mm * f_scale, border_y + 2.8 * mm * f_scale, store_text)
+    c.setFont(FONT_BOLD, 7.2 if is_frame_4cm else 11.2 * f_scale)
+    c.drawRightString(border_x + border_w - (2.0 if is_frame_4cm else 3.0) * mm * f_scale, border_y + (1.8 if is_frame_4cm else 2.8 * mm * f_scale), store_text)
 
     # Check promotional scheme
     offer = item.get("offer", "None")
@@ -624,59 +632,46 @@ def draw_single_price_tag_option2(
 
     # 3. Middle Section: Product Name (strictly single line if possible)
     raw_name = item.get("item_name", "PRODUCT NAME").strip()
-    name_font_size = 11.5 * f_scale
+    name_font_size = 7.5 if is_frame_4cm else 11.5 * f_scale
     if c.stringWidth(raw_name, FONT_BOLD, name_font_size) <= iw:
         lines = [raw_name]
     else:
         single_line = False
-        for candidate_sz in [11.0, 10.5, 10.0, 9.5]:
-            test_sz = candidate_sz * f_scale
+        candidates = [7.0, 6.5, 6.0] if is_frame_4cm else [11.0, 10.5, 10.0, 9.5]
+        for candidate_sz in candidates:
+            test_sz = candidate_sz if is_frame_4cm else (candidate_sz * f_scale)
             if c.stringWidth(raw_name, FONT_BOLD, test_sz) <= iw:
                 name_font_size = test_sz
                 lines = [raw_name]
                 single_line = True
                 break
         if not single_line:
-            name_font_size = 10.2 * f_scale
+            name_font_size = 6.0 if is_frame_4cm else (10.2 * f_scale)
             lines = wrap_text_to_lines(raw_name, iw, FONT_BOLD, name_font_size, c, max_lines=2)
 
     if has_promo:
-        if is_full_page:
-            pbox_h = 18.0 * mm
-            pbox_y = div_bottom_y + 4.0 * mm
-            p_font_size = 22.0
-        elif is_half_page:
-            pbox_h = 14.5 * mm
-            pbox_y = div_bottom_y + 2.5 * mm
-            p_font_size = 18.0
-        elif is_frame_4in:
-            pbox_h = 8.5 * mm
-            pbox_y = div_bottom_y + 2.0 * mm
-            p_font_size = 11.0
-        else:
-            pbox_h = 6.8 * mm
-            pbox_y = div_bottom_y + 1.5 * mm
-            p_font_size = 9.5
-
+        pbox_h = 4.2 * mm if is_frame_4cm else (18.0 * mm if is_full_page else (14.5 * mm if is_half_page else 6.8 * mm))
+        pbox_y = div_bottom_y + (1.0 * mm if is_frame_4cm else (4.0 * mm if is_full_page else (2.5 * mm if is_half_page else 1.5 * mm)))
+        p_font_size = 6.5 if is_frame_4cm else (22.0 if is_full_page else (18.0 if is_half_page else 9.5))
         pbox_x = ix
         pbox_w = iw
 
         c.setFillColor(colors.HexColor("#FFE500"))
         c.setStrokeColor(colors.HexColor("#1A1A1A"))
-        c.setLineWidth(0.75 * f_scale)
-        c.roundRect(pbox_x, pbox_y, pbox_w, pbox_h, 1.5 * mm * f_scale, fill=1, stroke=1)
+        c.setLineWidth(0.5 if is_frame_4cm else 0.75 * f_scale)
+        c.roundRect(pbox_x, pbox_y, pbox_w, pbox_h, (0.8 if is_frame_4cm else 1.5) * mm * f_scale, fill=1, stroke=1)
 
         badge_text = str(offer).strip().upper()
-        while c.stringWidth(badge_text, FONT_BOLD, p_font_size) > (pbox_w - 6.0 * mm * f_scale) and p_font_size > (7.0 * f_scale):
-            p_font_size -= 0.5 * f_scale
+        while c.stringWidth(badge_text, FONT_BOLD, p_font_size) > (pbox_w - (3.0 if is_frame_4cm else 6.0) * mm * f_scale) and p_font_size > (4.5 if is_frame_4cm else 7.0 * f_scale):
+            p_font_size -= 0.3 if is_frame_4cm else (0.5 * f_scale)
         c.setFont(FONT_BOLD, p_font_size)
         c.setFillColor(colors.HexColor("#111111"))
         bw = c.stringWidth(badge_text, FONT_BOLD, p_font_size)
-        c.drawString(pbox_x + (pbox_w - bw) / 2.0, pbox_y + (pbox_h - p_font_size) / 2.0 + 1.0 * f_scale, badge_text)
+        c.drawString(pbox_x + (pbox_w - bw) / 2.0, pbox_y + (pbox_h - p_font_size) / 2.0 + (0.4 if is_frame_4cm else 1.0 * f_scale), badge_text)
 
-        name_y = pbox_y + pbox_h + 2.0 * mm * f_scale
+        name_y = pbox_y + pbox_h + (1.0 * mm if is_frame_4cm else 2.0 * mm * f_scale)
     else:
-        name_y = div_bottom_y + 2.5 * mm * f_scale
+        name_y = div_bottom_y + (1.2 * mm if is_frame_4cm else 2.5 * mm * f_scale)
 
     c.setFont(FONT_BOLD, name_font_size)
     c.setFillColor(colors.HexColor("#111111"))
@@ -684,9 +679,9 @@ def draw_single_price_tag_option2(
         c.drawString(ix, name_y, lines[0])
         top_name_y = name_y + name_font_size * 0.75
     else:
-        c.drawString(ix, name_y + name_font_size + 1.5 * f_scale, lines[0])
+        c.drawString(ix, name_y + name_font_size + (0.8 if is_frame_4cm else 1.5 * f_scale), lines[0])
         c.drawString(ix, name_y, lines[1])
-        top_name_y = name_y + name_font_size * 1.8 + 1.5 * f_scale
+        top_name_y = name_y + name_font_size * 1.75 + (0.8 if is_frame_4cm else 1.5 * f_scale)
 
     # 4. Top Headline: Giant '₹ <SAVINGS> Off' covering the entire available space
     if savings_val > 0:
@@ -696,10 +691,10 @@ def draw_single_price_tag_option2(
         main_val_str = rate_formatted
         suffix_str = "Price"
 
-    top_limit = border_y + border_h - 2.0 * mm * f_scale
-    bottom_limit = top_name_y + 1.5 * mm * f_scale
-    avail_vert = max(10.0, top_limit - bottom_limit)
-    avail_w = border_w - 3.5 * mm * f_scale
+    top_limit = border_y + border_h - (1.0 * mm if is_frame_4cm else 2.0 * mm * f_scale)
+    bottom_limit = top_name_y + (1.0 * mm if is_frame_4cm else 1.5 * mm * f_scale)
+    avail_vert = max(6.0, top_limit - bottom_limit)
+    avail_w = border_w - (3.0 * mm if is_frame_4cm else 3.5 * mm * f_scale)
 
     # Scale font size so off amount covers the entire upper space
     val_size = (avail_vert * 0.94) / 0.72
@@ -907,6 +902,6 @@ def render_tag_preview_image(
     pdf = pdfium.PdfDocument(bio)
     page = pdf[0]
     # For large posters, scale 2.0 provides plenty of crisp resolution without huge memory
-    scale_val = 3.0 if layout_mode in ["8_tags", "4_tags_frame"] else (2.0 if layout_mode == "2_tags" else 1.5)
+    scale_val = 3.0 if layout_mode in ["8_tags", "15_tags_frame", "4_tags_frame"] else (2.0 if layout_mode == "2_tags" else 1.5)
     pil_image = page.render(scale=scale_val).to_pil()
     return pil_image

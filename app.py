@@ -272,7 +272,7 @@ class PriceTagGeneratorApp(QMainWindow):
         self.layout_combo = QComboBox()
         self.layout_combo.setObjectName("dropdown")
         self.layout_combo.addItem("8 Tags / A4 Sheet (90x60mm - Shelf Tags)", "8_tags")
-        self.layout_combo.addItem("4 Tags / A4 Sheet (4\" Shelf Frame - 95x102mm / 3\" Visible)", "4_tags_frame")
+        self.layout_combo.addItem("15 Tags / A4 Sheet (4cm Shelf Frame - 90x40mm / 3cm Visible)", "15_tags_frame")
         self.layout_combo.addItem("2 Tags / A4 Sheet (Half Page A5 - Promo Posters)", "2_tags")
         self.layout_combo.addItem("1 Tag / A4 Sheet (Full Page A4 Landscape - Display Sign)", "1_tag")
         self.layout_combo.currentIndexChanged.connect(self.on_layout_changed)
